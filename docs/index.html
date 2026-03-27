@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Tote Scanner</title>
@@ -31,18 +31,18 @@
 </head>
 <body>
 
-  <h2>Сканер ящиков</h2>
+  <h2>Scan Tote</h2>
 
   <input 
     type="text" 
     id="barcodeInput" 
-    placeholder="Введи код"
+    placeholder="Enter or scan code"
   />
 
-  <button id="scanBtn">Проверить</button>
+  <button id="scanBtn">Check</button>
 
   <div class="box" id="result">
-    Ждём сканирования...
+    Waiting for scan...
   </div>
 
   <script>
@@ -53,14 +53,14 @@
     button.addEventListener("click", async function() {
       const barcode = input.value;
 
-      console.log("НАЖАЛИ КНОПКУ, barcode:", barcode);
+      console.log("Button clicked, barcode:", barcode);
 
       if (!barcode) {
-        result.innerHTML = "Введите код!";
+        result.innerHTML = "Enter code!";
         return;
       }
 
-      result.innerHTML = "Загрузка...";
+      result.innerHTML = "Loading...";
 
       try {
         const data = {
@@ -81,15 +81,15 @@
         };
 
         result.innerHTML = `
-          <b>Палета:</b> ${data.pallet_id} <br>
-          <b>Размер:</b> ${data.size} <br>
-          <b>Назначение:</b> ${data.destination} <br><br>
-          <b>Все ящики:</b><br>
+          <b>Batch:</b> ${data.pallet_id} <br>
+          <b>Size:</b> ${data.size} <br>
+          <b>CDC:</b> ${data.destination} <br><br>
+          <b>All totes:</b><br>
           ${data.all_totes_on_pallet.join("<br>")}
         `;
 
       } catch (error) {
-        result.innerHTML = "Ошибка";
+        result.innerHTML = "Error";
         console.error(error);
       }
     });
