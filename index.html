@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tote Scanner</title>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    input {
+      font-size: 20px;
+      padding: 10px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    button {
+      font-size: 18px;
+      padding: 12px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .box {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Сканер ящиков</h2>
+
+  <input 
+    type="text" 
+    id="barcodeInput" 
+    placeholder="Введи код"
+  />
+
+  <button id="scanBtn">Проверить</button>
+
+  <div class="box" id="result">
+    Ждём сканирования...
+  </div>
+
+  <script>
+    const input = document.getElementById("barcodeInput");
+    const button = document.getElementById("scanBtn");
+    const result = document.getElementById("result");
+
+    button.addEventListener("click", async function() {
+      const barcode = input.value;
+
+      console.log("НАЖАЛИ КНОПКУ, barcode:", barcode);
+
+      if (!barcode) {
+        result.innerHTML = "Введите код!";
+        return;
+      }
+
+      result.innerHTML = "Загрузка...";
+
+      try {
+        const data = {
+          tote_id: barcode,
+          pallet_id: "12345678",
+          size: "large",
+          destination: "Berlin",
+          all_totes_on_pallet: [
+            "TOTE_111",
+            "TOTE_222",
+            "TOTE_333",
+            "TOTE_444",
+            "TOTE_555",
+            "TOTE_666",
+            "TOTE_777",
+            barcode
+          ]
+        };
+
+        result.innerHTML = `
+          <b>Палета:</b> ${data.pallet_id} <br>
+          <b>Размер:</b> ${data.size} <br>
+          <b>Назначение:</b> ${data.destination} <br><br>
+          <b>Все ящики:</b><br>
+          ${data.all_totes_on_pallet.join("<br>")}
+        `;
+
+      } catch (error) {
+        result.innerHTML = "Ошибка";
+        console.error(error);
+      }
+    });
+  </script>
+
+</body>
+</html>
