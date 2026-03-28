@@ -1,99 +1,177 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Tote Scanner</title>
-  <style>
-    body {
-      font-family: Arial;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-    input {
-      font-size: 20px;
-      padding: 10px;
-      width: 100%;
-      margin-bottom: 10px;
-    }
-    button {
-      font-size: 18px;
-      padding: 12px;
-      width: 100%;
-      cursor: pointer;
-    }
-    .box {
-      margin-top: 20px;
-      padding: 20px;
-      background: white;
-      border-radius: 10px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Warehouse Scanner</title>
 </head>
-<body>
 
-  <h2>Сканер ящиков</h2>
+<body style="font-family:Arial; text-align:center; margin-top:50px;">
 
-  <input 
-    type="text" 
-    id="barcodeInput" 
-    placeholder="Введи код"
-  />
+<div id="app"></div>
 
-  <button id="scanBtn">Проверить</button>
+<script>
 
-  <div class="box" id="result">
-    Ждём сканирования...
-  </div>
+// ====== БАЗА ======
+const users = {
+  "admin": "1234",
+  "worker": "1111"
+};
 
-  <script>
-    const input = document.getElementById("barcodeInput");
-    const button = document.getElementById("scanBtn");
-    const result = document.getElementById("result");
+const cdcData = {
+  "Berlin": [1,2,3,4,5,6,8],
+  "Hamburg": [10,11,12]
+};
 
-    button.addEventListener("click", async function() {
-      const barcode = input.value;
+// ====== ПЕРЕМЕННЫЕ ======
+let currentUser = null;
+let currentCDC = null;
+let tirNumber = "";
+let scanned = [];
 
-      console.log("НАЖАЛИ КНОПКУ, barcode:", barcode);
+// ====== LOGIN ======
+function showLogin() {
+  document.getElementById("app").innerHTML = `
+    <h2>Login</h2>
+    <input id="login" placeholder="login"><br><br>
+    <input id="pass" type="password" placeholder="password"><br><br>
+    <button onclick="login()">Enter</button>
+    <p id="msg"></p>
+  `;
+}
 
-      if (!barcode) {
-        result.innerHTML = "Введите код!";
-        return;
-      }
+function login() {
+  const l = document.getElementById("login").value;
+  const p = document.getElementById("pass").value;
 
-      result.innerHTML = "Загрузка...";
+  if (users[l] === p) {
+    currentUser = l;
+    showTIR();
+  } else {
+    document.getElementById("msg").innerText = "❌ Wrong login";
+  }
+}
 
-      try {
-        const data = {
-          tote_id: barcode,
-          pallet_id: "12345678",
-          size: "large",
-          destination: "Berlin",
-          all_totes_on_pallet: [
-            "TOTE_111",
-            "TOTE_222",
-            "TOTE_333",
-            "TOTE_444",
-            "TOTE_555",
-            "TOTE_666",
-            "TOTE_777",
-            barcode
-          ]
-        };
+// ===== TIR =====
+function showTIR() {
+  document.getElementById("app").innerHTML = `
+    <h2>Enter TIR Number</h2>
+    <input id="tir"><br><br>
+    <button onclick="goCDC()">Next</button>
+  `;
+}
 
-        result.innerHTML = `
-          <b>Палета:</b> ${data.pallet_id} <br>
-          <b>Размер:</b> ${data.size} <br>
-          <b>Назначение:</b> ${data.destination} <br><br>
-          <b>Все ящики:</b><br>
-          ${data.all_totes_on_pallet.join("<br>")}
-        `;
+function goCDC() {
+  tirNumber = document.getElementById("tir").value;
+  if (!tirNumber) return alert("Enter TIR");
+  showCDC();
+}
 
-      } catch (error) {
-        result.innerHTML = "Ошибка";
-        console.error(error);
-      }
-    });
-  </script>
+// ===== CDC =====
+function showCDC() {
+  let options = Object.keys(cdcData)
+    .map(c => `<option>${c}</option>`)
+    .join("");
+
+  document.getElementById("app").innerHTML = `
+    <h2>Select CDC</h2>
+    <select id="cdc">${options}</select><br><br>
+    <button onclick="startScan()">Start Scanning</button>
+  `;
+}
+
+function startScan() {
+  currentCDC = document.getElementById("cdc").value;
+  showScanner();
+}
+
+// ===== SCANNER =====
+function showScanner() {
+  document.getElementById("app").innerHTML = `
+    <h2>CDC: ${currentCDC}</h2>
+    <input id="scan" placeholder="scan..." autofocus>
+    <p id="status"></p>
+    <button onclick="save()">SAVE</button>
+    <br><br>
+    <button onclick="sendEmail()">SEND</button>
+  `;
+
+  document.getElementById("scan").addEventListener("change", handleScan);
+}
+
+// ===== ОБРАБОТКА СКАНА =====
+function handleScan(e) {
+  const code = e.target.value.trim();
+  e.target.value = "";
+
+  const store = parseInt(code.slice(-1)); // временно
+
+  if (!cdcData[currentCDC].includes(store)) {
+    document.getElementById("status").innerText =
+      "❌ ERROR: Store " + store + " not in " + currentCDC;
+    return;
+  }
+
+  if (scanned.find(x => x.store === store)) {
+    const confirmDuplicate = confirm("⚠️ Already scanned. Continue?");
+    if (!confirmDuplicate) return;
+  }
+
+  chooseType(store);
+}
+
+// ===== ВЫБОР ТИПА =====
+function chooseType(store) {
+  const type = prompt(
+    "1 - 8 large totes\n2 - 8 small totes\n3 - 4 large totes\n4 - 20 small totes\n5 - black box\n6 - euro pallet\n7 - other"
+  );
+
+  scanned.push({ store, type });
+
+  document.getElementById("status").innerText =
+    "✅ Added store " + store;
+}
+
+// ===== SAVE =====
+function save() {
+  if (scanned.length === 0) {
+    alert("Nothing scanned");
+    return;
+  }
+
+  let text = generateReport();
+  alert(text);
+}
+
+// ===== GENERATE REPORT =====
+function generateReport() {
+  let text = "TIR: " + tirNumber + "\n";
+  text += "CDC: " + currentCDC + "\n\n";
+
+  scanned.forEach(s => {
+    text += "Store " + s.store + " → " + s.type + "\n";
+  });
+
+  return text;
+}
+
+// ===== SEND EMAIL =====
+function sendEmail() {
+  if (scanned.length === 0) {
+    alert("Nothing to send");
+    return;
+  }
+
+  const subject = "TIR Report - " + tirNumber;
+  const body = encodeURIComponent(generateReport());
+
+  window.location.href =
+    `mailto:warehouse@email.com?subject=${subject}&body=${body}`;
+}
+
+// ===== СТАРТ =====
+showLogin();
+
+</script>
 
 </body>
 </html>
