@@ -2,58 +2,67 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>Warehouse Scanner</title>
 
 <style>
-body {
-  font-family: Arial;
-  text-align: center;
-  margin: 0;
-  padding-top: 20px;
-}
+body { font-family: Arial; margin:0; padding:15px; background:#f4f4f4;}
+#app { max-width:500px; margin:0 auto;}
 
-#app {
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-input, button, select {
-  font-size: 16px;
-  padding: 14px;
-  margin: 6px;
-  width: 90%;
-  max-width: 400px;
+input, select {
+  font-size:16px;
+  padding:14px;
+  margin:6px 0;
+  width:100%;
+  box-sizing:border-box;
 }
 
 button {
-  cursor: pointer;
+  font-size:16px;
+  padding:12px;
+  margin:6px 0;
+  width:100%;
+  border:none;
+  background:#222;
+  color:white;
+  border-radius:6px;
 }
 
-.type-btn {
-  background: #eee;
+.type-btn { background:#e0e0e0; color:black; }
+
+.success { color:green; font-weight:bold; }
+.error { color:red; font-weight:bold; }
+
+.item {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#e6ffe6;
+  padding:12px;
+  margin:6px 0;
+  border-radius:6px;
+  border:1px solid #8bc34a;
+}
+
+.item-text {
+  color:#000;
+  font-weight:500;
+  text-align:left;
 }
 
 .delete {
-  background: red;
-  color: white;
-  width: auto;        /* 🔥 убираем растягивание */
-  padding: 6px 12px;  /* делаем компактной */
-  font-size: 14px;    /* меньше текста */
+  background:red;
+  color:white;
+  width:auto;
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:5px;
 }
 
-#status {
-  font-size: 18px;
-  margin-top: 10px;
-}
-
-.item {
-  border: 1px solid #ccc;
-  padding: 12px;
-  margin: 6px auto;
-  width: 90%;
-  max-width: 400px;
+.label {
+  font-size:13px;
+  color:#666;
 }
 </style>
 </head>
@@ -63,88 +72,143 @@ button {
 
 <script>
 
-// ===== БАЗА =====
-const users = {
-  "admin": "1234"
-};
+// 🔊 AUDIO
+let audioUnlocked = false;
+function unlockAudio(){
+  if(audioUnlocked) return;
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const osc=ctx.createOscillator();
+  osc.connect(ctx.destination);
+  osc.start(); osc.stop();
+  audioUnlocked=true;
+}
+
+function playSuccess(){
+  if(!audioUnlocked) return;
+  const ctx=new AudioContext();
+
+  function beep(freq,delay){
+    setTimeout(()=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type="square";
+      osc.frequency.value=freq;
+      gain.gain.value=0.25;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(()=>osc.stop(),80);
+    },delay);
+  }
+
+  beep(1000,0);
+  beep(1300,100);
+  setTimeout(()=>ctx.close(),400);
+}
+
+function playError(){
+  if(!audioUnlocked) return;
+  const ctx=new AudioContext();
+  const osc=ctx.createOscillator();
+  const gain=ctx.createGain();
+
+  osc.type="sawtooth";
+  osc.frequency.setValueAtTime(300,ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80,ctx.currentTime+0.4);
+
+  gain.gain.value=0.4;
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+
+  setTimeout(()=>{
+    osc.stop();
+    ctx.close();
+  },400);
+}
+
+// ===== DATA =====
+const users = { "admin": "1234" };
 
 const cdcData = {
   "Berlin": [1,2,3,4,5,6,8],
   "Hamburg": [10,11,12]
 };
 
-// ===== ПЕРЕМЕННЫЕ =====
-let currentUser = null;
-let currentCDC = null;
-let tirNumber = "";
-let scanned = [];
-let pendingStore = null;
+let currentCDC=null;
+let tirNumber="";
+let scanned=[];
+let pendingStore=null;
 
 // ===== LOGIN =====
-function showLogin() {
-  app.innerHTML = `
+function showLogin(){
+  document.getElementById("app").innerHTML=`
     <h2>Login</h2>
     <input id="login">
     <input id="pass" type="password">
     <button onclick="login()">Enter</button>
     <p id="msg"></p>
   `;
+  document.body.addEventListener("click", unlockAudio, {once:true});
 }
 
-function login() {
-  const l = document.getElementById("login").value.trim();
-  const p = document.getElementById("pass").value.trim();
+function login(){
+  const l=document.getElementById("login").value.trim();
+  const p=document.getElementById("pass").value.trim();
 
-  if (users[l] === p) {
-    currentUser = l;
+  if(users[l]===p){
     showTIR();
   } else {
-    msg.innerText = "❌ Wrong login";
+    document.getElementById("msg").innerText="❌ Wrong login";
+    playError();
   }
 }
 
 // ===== TIR =====
-function showTIR() {
-  app.innerHTML = `
-    <h2>TIR</h2>
-    <input id="tir" value="${tirNumber}">
+function showTIR(){
+  document.getElementById("app").innerHTML=`
+    <h2>TIR Number</h2>
+    <input id="tir">
     <button onclick="goCDC()">Next</button>
   `;
 }
 
-function goCDC() {
-  const val = tir.value.trim();
-  if (!val) return alert("Enter TIR");
-
-  tirNumber = val;
+function goCDC(){
+  const val=document.getElementById("tir").value.trim();
+  if(!val) return alert("Enter TIR");
+  tirNumber=val;
   showCDC();
 }
 
 // ===== CDC =====
-function showCDC() {
-  let options = Object.keys(cdcData)
-    .map(c => `<option>${c}</option>`)
-    .join("");
-
-  app.innerHTML = `
-    <h2>CDC</h2>
-    <select id="cdc">${options}</select>
+function showCDC(){
+  document.getElementById("app").innerHTML=`
+    <h2>Select CDC</h2>
+    <select id="cdc">
+      ${Object.keys(cdcData).map(c=>`<option>${c}</option>`).join("")}
+    </select>
     <button onclick="startScan()">Start</button>
   `;
 }
 
-function startScan() {
-  currentCDC = cdc.value;
+function startScan(){
+  unlockAudio();
+  currentCDC=document.getElementById("cdc").value;
   showScanner();
 }
 
 // ===== SCANNER =====
-function showScanner() {
-  app.innerHTML = `
+function showScanner(){
+  document.getElementById("app").innerHTML=`
     <h3>${currentCDC}</h3>
-    <p>TIR: ${tirNumber} <button onclick="showTIR()">Edit</button></p>
 
-    <input id="scan" placeholder="scan..." autofocus>
+    <div class="label">No TIR</div>
+    <input id="tirLive" value="${tirNumber}">
+
+    <div class="label">Scan barcode</div>
+    <input id="scan" autofocus>
+
     <p id="status"></p>
 
     <div id="types"></div>
@@ -155,35 +219,41 @@ function showScanner() {
   `;
 
   document.getElementById("scan").addEventListener("change", handleScan);
+  document.getElementById("tirLive").addEventListener("input", e=>tirNumber=e.target.value);
+
+  renderList();
+  updateStatus();
 }
 
 // ===== SCAN =====
-function handleScan(e) {
-  const code = e.target.value.trim();
-  e.target.value = "";
+function handleScan(e){
+  const code=e.target.value.trim();
+  e.target.value="";
 
-  const status = document.getElementById("status");
+  const status=document.getElementById("status");
 
-  if (!code) return;
+  if(!code) return;
 
-  const store = parseInt(code.slice(-1));
+  const store=parseInt(code.slice(-1));
 
-  if (!cdcData[currentCDC].includes(store)) {
-    status.innerText = "❌ Wrong store";
+  if(!cdcData[currentCDC].includes(store)){
+    status.className="error";
+    status.innerText="❌ Wrong store";
+    playError();
     return;
   }
 
-  if (scanned.find(x => x.store === store)) {
-    if (!confirm("Duplicate. Continue?")) return;
+  if(scanned.find(x=>x.store===store)){
+    if(!confirm("Duplicate. Continue?")) return;
   }
 
-  pendingStore = store;
-  showTypeButtons();
+  pendingStore=store;
+  showTypes();
 }
 
-// ===== TYPE BUTTONS =====
-function showTypeButtons() {
-  document.getElementById("types").innerHTML = `
+// ===== TYPES =====
+function showTypes(){
+  document.getElementById("types").innerHTML=`
     <button class="type-btn" onclick="addType('8 LARGE TOTES')">8 LARGE</button>
     <button class="type-btn" onclick="addType('8 SMALL TOTES')">8 SMALL</button>
     <button class="type-btn" onclick="addType('4 LARGE TOTES')">4 LARGE</button>
@@ -194,82 +264,96 @@ function showTypeButtons() {
   `;
 }
 
-// ===== ADD TYPE =====
-function addType(type) {
-  scanned.push({ store: pendingStore, type });
-  pendingStore = null;
+// ===== ADD =====
+function addType(type){
+  scanned.push({store:pendingStore,type});
+  pendingStore=null;
 
-  document.getElementById("types").innerHTML = "";
-  updateStatus();
+  playSuccess();
+
+  const status=document.getElementById("status");
+  status.className="success";
+  status.innerText="✅ Added";
+
+  document.getElementById("types").innerHTML="";
   renderList();
+
+  setTimeout(updateStatus, 1000);
 }
 
-// ===== OTHER =====
-function addOther() {
-  const val = prompt("Enter OTHER:");
-  if (!val) return;
+function addOther(){
+  const val=prompt("Enter OTHER:");
+  if(!val) return;
 
-  scanned.push({ store: pendingStore, type: val });
-  pendingStore = null;
+  scanned.push({store:pendingStore,type:val});
+  pendingStore=null;
 
-  document.getElementById("types").innerHTML = "";
-  updateStatus();
+  playSuccess();
+
+  const status=document.getElementById("status");
+  status.className="success";
+  status.innerText="✅ Added";
+
+  document.getElementById("types").innerHTML="";
   renderList();
+
+  setTimeout(updateStatus, 1000);
 }
 
 // ===== STATUS =====
-function updateStatus() {
-  status.innerText = scanned.length
-    ? "📝 Total: " + scanned.length
-    : "";
+function updateStatus(){
+  const status=document.getElementById("status");
+
+  if(scanned.length===0){
+    status.innerText="";
+    status.className="";
+  } else {
+    status.className="";
+    status.innerText="📝 Total: "+scanned.length;
+  }
 }
 
 // ===== LIST =====
-function renderList() {
-  list.innerHTML = "";
+function renderList(){
+  const list=document.getElementById("list");
+  list.innerHTML="";
 
-  scanned.forEach((item, i) => {
-    list.innerHTML += `
+  scanned.forEach((item,i)=>{
+    list.innerHTML+=`
       <div class="item">
-        Store ${item.store} → ${item.type}
-        <br>
-        <button class="delete" onclick="removeItem(${i})">Delete</button>
+        <div class="item-text">
+          Store ${item.store}<br>${item.type}
+        </div>
+        <button class="delete" onclick="removeItem(${i})">X</button>
       </div>
     `;
   });
 }
 
-function removeItem(i) {
-  scanned.splice(i, 1);
+function removeItem(i){
+  scanned.splice(i,1);
   renderList();
-  updateStatus();
+  updateStatus(); // 🔥 ВАЖНО
 }
 
 // ===== SAVE =====
-function generateReport() {
-  let text = "TIR: " + tirNumber + "\nCDC: " + currentCDC + "\n\n";
-
-  scanned.forEach(s => {
-    text += `Store ${s.store} → ${s.type}\n`;
-  });
-
+function generateReport(){
+  let text="TIR: "+tirNumber+"\nCDC: "+currentCDC+"\n\n";
+  scanned.forEach(s=>text+=`Store ${s.store} → ${s.type}\n`);
   return text;
 }
 
-function save() {
-  if (!scanned.length) return alert("Nothing scanned");
+function save(){
+  if(!scanned.length) return alert("Nothing scanned");
   alert(generateReport());
 }
 
-// ===== SEND =====
-function sendEmail() {
-  if (!scanned.length) return alert("Nothing to send");
-
-  window.location.href =
-    `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
+function sendEmail(){
+  if(!scanned.length) return alert("Nothing to send");
+  window.location.href=`mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
 }
 
-// ===== START =====
+// START
 showLogin();
 
 </script>
