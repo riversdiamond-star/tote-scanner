@@ -45,11 +45,7 @@ button {
   border:1px solid #8bc34a;
 }
 
-.item-text {
-  color:#000;
-  font-weight:500;
-  text-align:left;
-}
+.item-text { color:#000; font-weight:500; }
 
 .delete {
   background:red;
@@ -60,9 +56,14 @@ button {
   border-radius:5px;
 }
 
-.label {
-  font-size:13px;
-  color:#666;
+.label { font-size:13px; color:#666; }
+
+.duplicate-box {
+  background:#fff3cd;
+  padding:10px;
+  border-radius:6px;
+  margin:10px 0;
+  border:1px solid #ffc107;
 }
 </style>
 </head>
@@ -72,61 +73,46 @@ button {
 
 <script>
 
-// 🔊 iPhone FIX
+// 🔊 AUDIO
 let audioCtx = null;
 
 function unlockAudio(){
   if(audioCtx) return;
-
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
   const osc = audioCtx.createOscillator();
   osc.connect(audioCtx.destination);
-  osc.start();
-  osc.stop();
+  osc.start(); osc.stop();
 }
 
-// 🔊 SUCCESS
 function playSuccess(){
   if(!audioCtx) return;
-
   function beep(freq,delay){
     setTimeout(()=>{
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-
       osc.type="square";
       osc.frequency.value=freq;
       gain.gain.value=0.25;
-
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-
       osc.start();
       setTimeout(()=>osc.stop(),80);
     },delay);
   }
-
   beep(1000,0);
   beep(1300,100);
 }
 
-// 🔊 ERROR
 function playError(){
   if(!audioCtx) return;
-
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-
   osc.type="sawtooth";
   osc.frequency.setValueAtTime(300,audioCtx.currentTime);
   osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.4);
-
   gain.gain.value=0.4;
-
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-
   osc.start();
   setTimeout(()=>osc.stop(),400);
 }
@@ -214,6 +200,7 @@ function showScanner(){
 
     <p id="status"></p>
 
+    <div id="duplicate"></div>
     <div id="types"></div>
     <div id="list"></div>
 
@@ -233,11 +220,10 @@ function handleScan(e){
   const code=e.target.value.trim();
   e.target.value="";
 
-  const status=document.getElementById("status");
-
   if(!code) return;
 
   const store=parseInt(code.slice(-1));
+  const status=document.getElementById("status");
 
   if(!cdcData[currentCDC].includes(store)){
     status.className="error";
@@ -247,9 +233,23 @@ function handleScan(e){
   }
 
   if(scanned.find(x=>x.store===store)){
-    if(!confirm("Duplicate. Continue?")) return;
+    playError();
+    document.getElementById("duplicate").innerHTML=`
+      <div class="duplicate-box">
+        ⚠️ Store ${store} already scanned<br>
+        <button onclick="forceAdd(${store})">Continue</button>
+      </div>
+    `;
+    return;
   }
 
+  pendingStore=store;
+  showTypes();
+}
+
+// ===== FORCE ADD =====
+function forceAdd(store){
+  document.getElementById("duplicate").innerHTML="";
   pendingStore=store;
   showTypes();
 }
@@ -272,6 +272,8 @@ function addType(type){
   scanned.push({store:pendingStore,type});
   pendingStore=null;
 
+  document.getElementById("duplicate").innerHTML="";
+
   playSuccess();
 
   const status=document.getElementById("status");
@@ -281,7 +283,7 @@ function addType(type){
   document.getElementById("types").innerHTML="";
   renderList();
 
-  setTimeout(updateStatus, 1000);
+  setTimeout(updateStatus,1000);
 }
 
 function addOther(){
@@ -291,6 +293,8 @@ function addOther(){
   scanned.push({store:pendingStore,type:val});
   pendingStore=null;
 
+  document.getElementById("duplicate").innerHTML="";
+
   playSuccess();
 
   const status=document.getElementById("status");
@@ -300,7 +304,7 @@ function addOther(){
   document.getElementById("types").innerHTML="";
   renderList();
 
-  setTimeout(updateStatus, 1000);
+  setTimeout(updateStatus,1000);
 }
 
 // ===== STATUS =====
@@ -353,7 +357,9 @@ function save(){
 
 function sendEmail(){
   if(!scanned.length) return alert("Nothing to send");
-  window.location.href=`mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
+
+  window.location.href=
+    `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
 }
 
 // START
