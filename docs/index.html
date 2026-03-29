@@ -2,8 +2,6 @@
 <html>
 <head>
 <meta charset="UTF-8">
-
-<!-- 🔥 ГЛАВНОЕ ДЛЯ ТЕЛЕФОНА -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <title>Warehouse Scanner</title>
@@ -16,14 +14,13 @@ body {
   padding-top: 20px;
 }
 
-/* фикс контейнера */
 #app {
   max-width: 500px;
   margin: 0 auto;
 }
 
 input, button, select {
-  font-size: 16px; /* важно против zoom */
+  font-size: 16px;
   padding: 14px;
   margin: 6px;
   width: 90%;
@@ -34,8 +31,17 @@ button {
   cursor: pointer;
 }
 
+.type-btn {
+  background: #eee;
+}
+
+.delete {
+  background: red;
+  color: white;
+}
+
 #status {
-  font-size: 20px;
+  font-size: 18px;
   margin-top: 10px;
 }
 
@@ -46,17 +52,10 @@ button {
   width: 90%;
   max-width: 400px;
 }
-
-.delete {
-  background: red;
-  color: white;
-}
 </style>
-
 </head>
 
 <body>
-
 <div id="app"></div>
 
 <script>
@@ -76,13 +75,14 @@ let currentUser = null;
 let currentCDC = null;
 let tirNumber = "";
 let scanned = [];
+let pendingStore = null;
 
 // ===== LOGIN =====
 function showLogin() {
-  document.getElementById("app").innerHTML = `
+  app.innerHTML = `
     <h2>Login</h2>
-    <input id="login" placeholder="login">
-    <input id="pass" type="password" placeholder="password">
+    <input id="login">
+    <input id="pass" type="password">
     <button onclick="login()">Enter</button>
     <p id="msg"></p>
   `;
@@ -96,28 +96,24 @@ function login() {
     currentUser = l;
     showTIR();
   } else {
-    document.getElementById("msg").innerText = "❌ Wrong login";
+    msg.innerText = "❌ Wrong login";
   }
 }
 
 // ===== TIR =====
 function showTIR() {
-  document.getElementById("app").innerHTML = `
-    <h2>TIR Number</h2>
+  app.innerHTML = `
+    <h2>TIR</h2>
     <input id="tir" value="${tirNumber}">
     <button onclick="goCDC()">Next</button>
   `;
 }
 
 function goCDC() {
-  const tirInput = document.getElementById("tir").value.trim();
+  const val = tir.value.trim();
+  if (!val) return alert("Enter TIR");
 
-  if (!tirInput) {
-    alert("Enter TIR");
-    return;
-  }
-
-  tirNumber = tirInput;
+  tirNumber = val;
   showCDC();
 }
 
@@ -127,41 +123,38 @@ function showCDC() {
     .map(c => `<option>${c}</option>`)
     .join("");
 
-  document.getElementById("app").innerHTML = `
-    <h2>Select CDC</h2>
+  app.innerHTML = `
+    <h2>CDC</h2>
     <select id="cdc">${options}</select>
     <button onclick="startScan()">Start</button>
   `;
 }
 
 function startScan() {
-  currentCDC = document.getElementById("cdc").value;
+  currentCDC = cdc.value;
   showScanner();
 }
 
-// ===== SCAN =====
+// ===== SCANNER =====
 function showScanner() {
-  document.getElementById("app").innerHTML = `
-    <h2>CDC: ${currentCDC}</h2>
-    <p>TIR: ${tirNumber} <button onclick="showTIR()">✏️ Edit</button></p>
+  app.innerHTML = `
+    <h3>${currentCDC}</h3>
+    <p>TIR: ${tirNumber} <button onclick="showTIR()">Edit</button></p>
 
     <input id="scan" placeholder="scan..." autofocus>
     <p id="status"></p>
 
+    <div id="types"></div>
     <div id="list"></div>
 
     <button onclick="save()">SAVE</button>
     <button onclick="sendEmail()">SEND</button>
   `;
 
-  const scanInput = document.getElementById("scan");
-  scanInput.addEventListener("change", handleScan);
-
-  // 🔥 автофокус после каждого действия
-  scanInput.focus();
+  document.getElementById("scan").addEventListener("change", handleScan);
 }
 
-// ===== SCAN LOGIC =====
+// ===== SCAN =====
 function handleScan(e) {
   const code = e.target.value.trim();
   e.target.value = "";
@@ -173,84 +166,85 @@ function handleScan(e) {
   const store = parseInt(code.slice(-1));
 
   if (!cdcData[currentCDC].includes(store)) {
-    status.innerText = "❌ ERROR: Store not in " + currentCDC;
+    status.innerText = "❌ Wrong store";
     return;
   }
 
   if (scanned.find(x => x.store === store)) {
-    if (!confirm("⚠️ Already scanned. Continue?")) return;
+    if (!confirm("Duplicate. Continue?")) return;
   }
 
-  chooseType(store);
+  pendingStore = store;
+  showTypeButtons();
 }
 
-// ===== TYPE =====
-function chooseType(store) {
-  const input = prompt("1-8L  2-8S  3-4L  4-20S  5-Box  6-Euro  7-Other");
+// ===== TYPE BUTTONS =====
+function showTypeButtons() {
+  document.getElementById("types").innerHTML = `
+    <button class="type-btn" onclick="addType('8 LARGE TOTES')">8 LARGE</button>
+    <button class="type-btn" onclick="addType('8 SMALL TOTES')">8 SMALL</button>
+    <button class="type-btn" onclick="addType('4 LARGE TOTES')">4 LARGE</button>
+    <button class="type-btn" onclick="addType('20 SMALL TOTES')">20 SMALL</button>
+    <button class="type-btn" onclick="addType('BLACK BOX')">BLACK BOX</button>
+    <button class="type-btn" onclick="addType('EURO PALLET')">EURO PALLET</button>
+    <button class="type-btn" onclick="addOther()">OTHER</button>
+  `;
+}
 
-  if (!input) return;
+// ===== ADD TYPE =====
+function addType(type) {
+  scanned.push({ store: pendingStore, type });
+  pendingStore = null;
 
-  let type = "";
+  document.getElementById("types").innerHTML = "";
+  updateStatus();
+  renderList();
+}
 
-  switch(input) {
-    case "1": type = "8 LARGE TOTES"; break;
-    case "2": type = "8 SMALL TOTES"; break;
-    case "3": type = "4 LARGE TOTES"; break;
-    case "4": type = "20 SMALL TOTES"; break;
-    case "5": type = "BLACK BOX"; break;
-    case "6": type = "EURO PALLET"; break;
-    case "7":
-      type = prompt("Enter OTHER:");
-      if (!type) return;
-      break;
-    default:
-      alert("Invalid choice");
-      return;
-  }
+// ===== OTHER =====
+function addOther() {
+  const val = prompt("Enter OTHER:");
+  if (!val) return;
 
-  scanned.push({ store, type });
+  scanned.push({ store: pendingStore, type: val });
+  pendingStore = null;
 
+  document.getElementById("types").innerHTML = "";
   updateStatus();
   renderList();
 }
 
 // ===== STATUS =====
 function updateStatus() {
-  const status = document.getElementById("status");
-
-  if (scanned.length === 0) {
-    status.innerText = "";
-  } else {
-    status.innerText = "📝 Total scanned: " + scanned.length;
-  }
+  status.innerText = scanned.length
+    ? "📝 Total: " + scanned.length
+    : "";
 }
 
 // ===== LIST =====
 function renderList() {
-  const list = document.getElementById("list");
   list.innerHTML = "";
 
-  scanned.forEach((item, index) => {
+  scanned.forEach((item, i) => {
     list.innerHTML += `
       <div class="item">
         Store ${item.store} → ${item.type}
         <br>
-        <button class="delete" onclick="removeItem(${index})">Delete</button>
+        <button class="delete" onclick="removeItem(${i})">Delete</button>
       </div>
     `;
   });
 }
 
-function removeItem(index) {
-  scanned.splice(index, 1);
+function removeItem(i) {
+  scanned.splice(i, 1);
   renderList();
   updateStatus();
 }
 
 // ===== SAVE =====
 function generateReport() {
-  let text = "TIR: " + tirNumber + "\n";
-  text += "CDC: " + currentCDC + "\n\n";
+  let text = "TIR: " + tirNumber + "\nCDC: " + currentCDC + "\n\n";
 
   scanned.forEach(s => {
     text += `Store ${s.store} → ${s.type}\n`;
@@ -260,25 +254,21 @@ function generateReport() {
 }
 
 function save() {
-  if (scanned.length === 0) return alert("Nothing scanned");
+  if (!scanned.length) return alert("Nothing scanned");
   alert(generateReport());
 }
 
 // ===== SEND =====
 function sendEmail() {
-  if (scanned.length === 0) return alert("Nothing to send");
-
-  const subject = "TIR " + tirNumber;
-  const body = encodeURIComponent(generateReport());
+  if (!scanned.length) return alert("Nothing to send");
 
   window.location.href =
-    `mailto:test@email.com?subject=${subject}&body=${body}`;
+    `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
 }
 
 // ===== START =====
 showLogin();
 
 </script>
-
 </body>
 </html>
