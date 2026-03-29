@@ -72,30 +72,36 @@ button {
 
 <script>
 
-// 🔊 AUDIO
-let audioUnlocked = false;
+// 🔊 iPhone FIX
+let audioCtx = null;
+
 function unlockAudio(){
-  if(audioUnlocked) return;
-  const ctx=new (window.AudioContext||window.webkitAudioContext)();
-  const osc=ctx.createOscillator();
-  osc.connect(ctx.destination);
-  osc.start(); osc.stop();
-  audioUnlocked=true;
+  if(audioCtx) return;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  const osc = audioCtx.createOscillator();
+  osc.connect(audioCtx.destination);
+  osc.start();
+  osc.stop();
 }
 
+// 🔊 SUCCESS
 function playSuccess(){
-  if(!audioUnlocked) return;
-  const ctx=new AudioContext();
+  if(!audioCtx) return;
 
   function beep(freq,delay){
     setTimeout(()=>{
-      const osc=ctx.createOscillator();
-      const gain=ctx.createGain();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
       osc.type="square";
       osc.frequency.value=freq;
       gain.gain.value=0.25;
+
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(audioCtx.destination);
+
       osc.start();
       setTimeout(()=>osc.stop(),80);
     },delay);
@@ -103,29 +109,26 @@ function playSuccess(){
 
   beep(1000,0);
   beep(1300,100);
-  setTimeout(()=>ctx.close(),400);
 }
 
+// 🔊 ERROR
 function playError(){
-  if(!audioUnlocked) return;
-  const ctx=new AudioContext();
-  const osc=ctx.createOscillator();
-  const gain=ctx.createGain();
+  if(!audioCtx) return;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
 
   osc.type="sawtooth";
-  osc.frequency.setValueAtTime(300,ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(80,ctx.currentTime+0.4);
+  osc.frequency.setValueAtTime(300,audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.4);
 
   gain.gain.value=0.4;
 
   osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start();
+  gain.connect(audioCtx.destination);
 
-  setTimeout(()=>{
-    osc.stop();
-    ctx.close();
-  },400);
+  osc.start();
+  setTimeout(()=>osc.stop(),400);
 }
 
 // ===== DATA =====
@@ -333,7 +336,7 @@ function renderList(){
 function removeItem(i){
   scanned.splice(i,1);
   renderList();
-  updateStatus(); // 🔥 ВАЖНО
+  updateStatus();
 }
 
 // ===== SAVE =====
