@@ -3,18 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <title>Warehouse Scanner</title>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  margin-top: 30px;
+}
+
+input, button, select {
+  font-size: 22px;
+  padding: 12px;
+  margin: 5px;
+  width: 80%;
+  max-width: 400px;
+}
+
+button {
+  cursor: pointer;
+}
+
+#status {
+  font-size: 22px;
+  margin-top: 10px;
+}
+
+.item {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin: 5px auto;
+  width: 80%;
+  max-width: 400px;
+}
+
+.delete {
+  background: red;
+  color: white;
+}
+</style>
+
 </head>
 
-<body style="font-family:Arial; text-align:center; margin-top:50px;">
+<body>
 
 <div id="app"></div>
 
 <script>
 
-// ====== БАЗА ======
+// ===== БАЗА =====
 const users = {
-  "admin": "1234",
-  "worker": "1111"
+  "admin": "1234"
 };
 
 const cdcData = {
@@ -22,26 +60,26 @@ const cdcData = {
   "Hamburg": [10,11,12]
 };
 
-// ====== ПЕРЕМЕННЫЕ ======
+// ===== ПЕРЕМЕННЫЕ =====
 let currentUser = null;
 let currentCDC = null;
 let tirNumber = "";
 let scanned = [];
 
-// ====== LOGIN ======
+// ===== LOGIN =====
 function showLogin() {
   document.getElementById("app").innerHTML = `
     <h2>Login</h2>
-    <input id="login" placeholder="login"><br><br>
-    <input id="pass" type="password" placeholder="password"><br><br>
+    <input id="login" placeholder="login">
+    <input id="pass" type="password" placeholder="password">
     <button onclick="login()">Enter</button>
     <p id="msg"></p>
   `;
 }
 
 function login() {
-  const l = document.getElementById("login").value;
-  const p = document.getElementById("pass").value;
+  const l = document.getElementById("login").value.trim();
+  const p = document.getElementById("pass").value.trim();
 
   if (users[l] === p) {
     currentUser = l;
@@ -54,15 +92,21 @@ function login() {
 // ===== TIR =====
 function showTIR() {
   document.getElementById("app").innerHTML = `
-    <h2>Enter TIR Number</h2>
-    <input id="tir"><br><br>
+    <h2>TIR Number</h2>
+    <input id="tir" value="${tirNumber}">
     <button onclick="goCDC()">Next</button>
   `;
 }
 
 function goCDC() {
-  tirNumber = document.getElementById("tir").value;
-  if (!tirNumber) return alert("Enter TIR");
+  const tirInput = document.getElementById("tir").value.trim();
+
+  if (!tirInput) {
+    alert("Enter TIR");
+    return;
+  }
+
+  tirNumber = tirInput;
   showCDC();
 }
 
@@ -74,8 +118,8 @@ function showCDC() {
 
   document.getElementById("app").innerHTML = `
     <h2>Select CDC</h2>
-    <select id="cdc">${options}</select><br><br>
-    <button onclick="startScan()">Start Scanning</button>
+    <select id="cdc">${options}</select>
+    <button onclick="startScan()">Start</button>
   `;
 }
 
@@ -84,33 +128,42 @@ function startScan() {
   showScanner();
 }
 
-// ===== SCANNER =====
+// ===== SCAN =====
 function showScanner() {
   document.getElementById("app").innerHTML = `
     <h2>CDC: ${currentCDC}</h2>
+    <p>TIR: ${tirNumber} <button onclick="showTIR()">✏️ Edit</button></p>
+
     <input id="scan" placeholder="scan..." autofocus>
     <p id="status"></p>
+
+    <div id="list"></div>
+
     <button onclick="save()">SAVE</button>
-    <br><br>
     <button onclick="sendEmail()">SEND</button>
   `;
 
   document.getElementById("scan").addEventListener("change", handleScan);
 }
 
-// ===== ОБРАБОТКА СКАНА =====
+// ===== SCAN LOGIC =====
 function handleScan(e) {
   const code = e.target.value.trim();
   e.target.value = "";
 
-  const store = parseInt(code.slice(-1)); // временно
+  const status = document.getElementById("status");
 
+  if (!code) return;
+
+  const store = parseInt(code.slice(-1));
+
+  // ❌ НЕ В CDC
   if (!cdcData[currentCDC].includes(store)) {
-    document.getElementById("status").innerText =
-      "❌ ERROR: Store " + store + " not in " + currentCDC;
+    status.innerText = "❌ ERROR: Store not in " + currentCDC;
     return;
   }
 
+  // ⚠️ ДУБЛИКАТ
   if (scanned.find(x => x.store === store)) {
     const confirmDuplicate = confirm("⚠️ Already scanned. Continue?");
     if (!confirmDuplicate) return;
@@ -119,56 +172,117 @@ function handleScan(e) {
   chooseType(store);
 }
 
-// ===== ВЫБОР ТИПА =====
+// ===== TYPE (ОБНОВЛЕНО) =====
 function chooseType(store) {
-  const type = prompt(
-    "1 - 8 large totes\n2 - 8 small totes\n3 - 4 large totes\n4 - 20 small totes\n5 - black box\n6 - euro pallet\n7 - other"
-  );
+  const input = prompt("1-8L  2-8S  3-4L  4-20S  5-Box  6-Euro  7-Other");
+
+  if (!input) return;
+
+  let type = "";
+
+  switch(input) {
+    case "1":
+      type = "8 LARGE TOTES";
+      break;
+    case "2":
+      type = "8 SMALL TOTES";
+      break;
+    case "3":
+      type = "4 LARGE TOTES";
+      break;
+    case "4":
+      type = "20 SMALL TOTES";
+      break;
+    case "5":
+      type = "BLACK BOX";
+      break;
+    case "6":
+      type = "EURO PALLET";
+      break;
+    case "7":
+      type = prompt("Enter OTHER:");
+      if (!type) return;
+      break;
+    default:
+      alert("Invalid choice");
+      return;
+  }
 
   scanned.push({ store, type });
 
-  document.getElementById("status").innerText =
-    "✅ Added store " + store;
+  updateStatus();
+  renderList();
+}
+
+// ===== STATUS =====
+function updateStatus() {
+  const status = document.getElementById("status");
+
+  if (scanned.length === 0) {
+    status.innerText = "";
+  } else {
+    status.innerText = "📝 Total scanned: " + scanned.length;
+  }
+}
+
+// ===== LIST =====
+function renderList() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  scanned.forEach((item, index) => {
+    list.innerHTML += `
+      <div class="item">
+        Store ${item.store} → ${item.type}
+        <br>
+        <button class="delete" onclick="removeItem(${index})">Delete</button>
+      </div>
+    `;
+  });
+}
+
+function removeItem(index) {
+  scanned.splice(index, 1);
+  renderList();
+  updateStatus();
 }
 
 // ===== SAVE =====
+function generateReport() {
+  let text = "TIR: " + tirNumber + "\n";
+  text += "CDC: " + currentCDC + "\n\n";
+
+  scanned.forEach(s => {
+    text += `Store ${s.store} → ${s.type}\n`;
+  });
+
+  return text;
+}
+
 function save() {
   if (scanned.length === 0) {
     alert("Nothing scanned");
     return;
   }
 
-  let text = generateReport();
-  alert(text);
+  alert(generateReport());
 }
 
-// ===== GENERATE REPORT =====
-function generateReport() {
-  let text = "TIR: " + tirNumber + "\n";
-  text += "CDC: " + currentCDC + "\n\n";
-
-  scanned.forEach(s => {
-    text += "Store " + s.store + " → " + s.type + "\n";
-  });
-
-  return text;
-}
-
-// ===== SEND EMAIL =====
+// ===== SEND =====
 function sendEmail() {
   if (scanned.length === 0) {
     alert("Nothing to send");
     return;
   }
 
-  const subject = "TIR Report - " + tirNumber;
+  const subject = "TIR " + tirNumber;
   const body = encodeURIComponent(generateReport());
 
   window.location.href =
-    `mailto:warehouse@email.com?subject=${subject}&body=${body}`;
+    `mailto:test@email.com?subject=${subject}&body=${body}`;
 }
 
-// ===== СТАРТ =====
+// ===== START =====
 showLogin();
 
 </script>
