@@ -2,20 +2,31 @@
 <html>
 <head>
 <meta charset="UTF-8">
+
+<!-- 🔥 ГЛАВНОЕ ДЛЯ ТЕЛЕФОНА -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
 <title>Warehouse Scanner</title>
 
 <style>
 body {
   font-family: Arial;
   text-align: center;
-  margin-top: 30px;
+  margin: 0;
+  padding-top: 20px;
+}
+
+/* фикс контейнера */
+#app {
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 input, button, select {
-  font-size: 22px;
-  padding: 12px;
-  margin: 5px;
-  width: 80%;
+  font-size: 16px; /* важно против zoom */
+  padding: 14px;
+  margin: 6px;
+  width: 90%;
   max-width: 400px;
 }
 
@@ -24,15 +35,15 @@ button {
 }
 
 #status {
-  font-size: 22px;
+  font-size: 20px;
   margin-top: 10px;
 }
 
 .item {
   border: 1px solid #ccc;
-  padding: 10px;
-  margin: 5px auto;
-  width: 80%;
+  padding: 12px;
+  margin: 6px auto;
+  width: 90%;
   max-width: 400px;
 }
 
@@ -143,7 +154,11 @@ function showScanner() {
     <button onclick="sendEmail()">SEND</button>
   `;
 
-  document.getElementById("scan").addEventListener("change", handleScan);
+  const scanInput = document.getElementById("scan");
+  scanInput.addEventListener("change", handleScan);
+
+  // 🔥 автофокус после каждого действия
+  scanInput.focus();
 }
 
 // ===== SCAN LOGIC =====
@@ -157,22 +172,19 @@ function handleScan(e) {
 
   const store = parseInt(code.slice(-1));
 
-  // ❌ НЕ В CDC
   if (!cdcData[currentCDC].includes(store)) {
     status.innerText = "❌ ERROR: Store not in " + currentCDC;
     return;
   }
 
-  // ⚠️ ДУБЛИКАТ
   if (scanned.find(x => x.store === store)) {
-    const confirmDuplicate = confirm("⚠️ Already scanned. Continue?");
-    if (!confirmDuplicate) return;
+    if (!confirm("⚠️ Already scanned. Continue?")) return;
   }
 
   chooseType(store);
 }
 
-// ===== TYPE (ОБНОВЛЕНО) =====
+// ===== TYPE =====
 function chooseType(store) {
   const input = prompt("1-8L  2-8S  3-4L  4-20S  5-Box  6-Euro  7-Other");
 
@@ -181,24 +193,12 @@ function chooseType(store) {
   let type = "";
 
   switch(input) {
-    case "1":
-      type = "8 LARGE TOTES";
-      break;
-    case "2":
-      type = "8 SMALL TOTES";
-      break;
-    case "3":
-      type = "4 LARGE TOTES";
-      break;
-    case "4":
-      type = "20 SMALL TOTES";
-      break;
-    case "5":
-      type = "BLACK BOX";
-      break;
-    case "6":
-      type = "EURO PALLET";
-      break;
+    case "1": type = "8 LARGE TOTES"; break;
+    case "2": type = "8 SMALL TOTES"; break;
+    case "3": type = "4 LARGE TOTES"; break;
+    case "4": type = "20 SMALL TOTES"; break;
+    case "5": type = "BLACK BOX"; break;
+    case "6": type = "EURO PALLET"; break;
     case "7":
       type = prompt("Enter OTHER:");
       if (!type) return;
@@ -260,20 +260,13 @@ function generateReport() {
 }
 
 function save() {
-  if (scanned.length === 0) {
-    alert("Nothing scanned");
-    return;
-  }
-
+  if (scanned.length === 0) return alert("Nothing scanned");
   alert(generateReport());
 }
 
 // ===== SEND =====
 function sendEmail() {
-  if (scanned.length === 0) {
-    alert("Nothing to send");
-    return;
-  }
+  if (scanned.length === 0) return alert("Nothing to send");
 
   const subject = "TIR " + tirNumber;
   const body = encodeURIComponent(generateReport());
