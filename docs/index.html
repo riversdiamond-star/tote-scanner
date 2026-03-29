@@ -117,6 +117,18 @@ function playError(){
   setTimeout(()=>osc.stop(),400);
 }
 
+// 🕒 ДАТА/ВРЕМЯ
+function updateDateTime(){
+  const now = new Date();
+  const date = now.toLocaleDateString();
+  const time = now.toLocaleTimeString();
+
+  const el = document.getElementById("datetime");
+  if(el){
+    el.innerText = `📅 ${date} | 🕒 ${time}`;
+  }
+}
+
 // ===== DATA =====
 const users = { "admin": "1234" };
 
@@ -192,6 +204,8 @@ function showScanner(){
   document.getElementById("app").innerHTML=`
     <h3>${currentCDC}</h3>
 
+    <div id="datetime" class="label"></div>
+
     <div class="label">No TIR</div>
     <input id="tirLive" value="${tirNumber}">
 
@@ -213,6 +227,9 @@ function showScanner(){
 
   renderList();
   updateStatus();
+
+  updateDateTime();
+  setInterval(updateDateTime,1000);
 }
 
 // ===== SCAN =====
@@ -345,7 +362,14 @@ function removeItem(i){
 
 // ===== SAVE =====
 function generateReport(){
-  let text="TIR: "+tirNumber+"\nCDC: "+currentCDC+"\n\n";
+  const now = new Date();
+  const date = now.toLocaleDateString();
+  const time = now.toLocaleTimeString();
+
+  let text=`Date: ${date} ${time}\n`;
+  text+="TIR: "+tirNumber+"\n";
+  text+="CDC: "+currentCDC+"\n\n";
+
   scanned.forEach(s=>text+=`Store ${s.store} → ${s.type}\n`);
   return text;
 }
