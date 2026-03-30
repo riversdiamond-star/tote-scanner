@@ -73,59 +73,20 @@ button {
 
 <script>
 
-// 🔊 AUDIO
-let audioCtx = null;
+// ===== TIME =====
+let timeInterval = null;
 
-function unlockAudio(){
-  if(audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = audioCtx.createOscillator();
-  osc.connect(audioCtx.destination);
-  osc.start(); osc.stop();
+function startClock(){
+  if(timeInterval) clearInterval(timeInterval);
+  updateDateTime();
+  timeInterval = setInterval(updateDateTime, 1000);
 }
 
-function playSuccess(){
-  if(!audioCtx) return;
-  function beep(freq,delay){
-    setTimeout(()=>{
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type="square";
-      osc.frequency.value=freq;
-      gain.gain.value=0.25;
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      setTimeout(()=>osc.stop(),80);
-    },delay);
-  }
-  beep(1000,0);
-  beep(1300,100);
-}
-
-function playError(){
-  if(!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type="sawtooth";
-  osc.frequency.setValueAtTime(300,audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.4);
-  gain.gain.value=0.4;
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  setTimeout(()=>osc.stop(),400);
-}
-
-// 🕒 ДАТА/ВРЕМЯ
 function updateDateTime(){
   const now = new Date();
-  const date = now.toLocaleDateString();
-  const time = now.toLocaleTimeString();
-
   const el = document.getElementById("datetime");
   if(el){
-    el.innerText = `📅 ${date} | 🕒 ${time}`;
+    el.innerText = `📅 ${now.toLocaleDateString()} | 🕒 ${now.toLocaleTimeString()}`;
   }
 }
 
@@ -142,6 +103,57 @@ let tirNumber="";
 let scanned=[];
 let pendingStore=null;
 
+// ===== STORAGE =====
+function saveState(){
+  localStorage.setItem("scannerData", JSON.stringify({
+    currentCDC,
+    tirNumber,
+    scanned
+  }));
+}
+
+function loadState(){
+  const data = localStorage.getItem("scannerData");
+  if(!data) return false;
+
+  const parsed = JSON.parse(data);
+  currentCDC = parsed.currentCDC;
+  tirNumber = parsed.tirNumber;
+  scanned = parsed.scanned || [];
+  return true;
+}
+
+function resetApp(){
+  localStorage.removeItem("scannerData");
+  currentCDC=null;
+  tirNumber="";
+  scanned=[];
+  pendingStore=null;
+  showLogin();
+}
+
+// ===== CHANGE CDC =====
+function changeCDC(){
+  if(scanned.length > 0){
+    alert("Cannot change CDC while list is not empty");
+    return;
+  }
+
+  const options = Object.keys(cdcData).join("\n");
+  const newCDC = prompt("Enter CDC:\n" + options, currentCDC);
+
+  if(!newCDC) return;
+
+  if(!cdcData[newCDC]){
+    alert("Wrong CDC");
+    return;
+  }
+
+  currentCDC = newCDC;
+  saveState();
+  showScanner();
+}
+
 // ===== LOGIN =====
 function showLogin(){
   document.getElementById("app").innerHTML=`
@@ -151,7 +163,6 @@ function showLogin(){
     <button onclick="login()">Enter</button>
     <p id="msg"></p>
   `;
-  document.body.addEventListener("click", unlockAudio, {once:true});
 }
 
 function login(){
@@ -162,7 +173,6 @@ function login(){
     showTIR();
   } else {
     document.getElementById("msg").innerText="❌ Wrong login";
-    playError();
   }
 }
 
@@ -194,19 +204,24 @@ function showCDC(){
 }
 
 function startScan(){
-  unlockAudio();
   currentCDC=document.getElementById("cdc").value;
+  saveState();
   showScanner();
 }
 
 // ===== SCANNER =====
 function showScanner(){
   document.getElementById("app").innerHTML=`
-    <h3>${currentCDC}</h3>
+    <h3>
+      ${currentCDC}
+      <button onclick="changeCDC()" style="width:auto;padding:6px 10px;font-size:12px;margin-left:10px;">
+        Change
+      </button>
+    </h3>
 
     <div id="datetime" class="label"></div>
 
-    <div class="label">No TIR</div>
+    <div class="label">TIR</div>
     <input id="tirLive" value="${tirNumber}">
 
     <div class="label">Scan barcode</div>
@@ -220,16 +235,19 @@ function showScanner(){
 
     <button onclick="save()">SAVE</button>
     <button onclick="sendEmail()">SEND</button>
+    <button onclick="newLoad()">NEW LOAD</button>
+    <button onclick="logout()">LOGOUT</button>
   `;
 
   document.getElementById("scan").addEventListener("change", handleScan);
-  document.getElementById("tirLive").addEventListener("input", e=>tirNumber=e.target.value);
+  document.getElementById("tirLive").addEventListener("input", e=>{
+    tirNumber=e.target.value;
+    saveState();
+  });
 
   renderList();
   updateStatus();
-
-  updateDateTime();
-  setInterval(updateDateTime,1000);
+  startClock();
 }
 
 // ===== SCAN =====
@@ -245,12 +263,10 @@ function handleScan(e){
   if(!cdcData[currentCDC].includes(store)){
     status.className="error";
     status.innerText="❌ Wrong store";
-    playError();
     return;
   }
 
   if(scanned.find(x=>x.store===store)){
-    playError();
     document.getElementById("duplicate").innerHTML=`
       <div class="duplicate-box">
         ⚠️ Store ${store} already scanned<br>
@@ -260,13 +276,6 @@ function handleScan(e){
     return;
   }
 
-  pendingStore=store;
-  showTypes();
-}
-
-// ===== FORCE ADD =====
-function forceAdd(store){
-  document.getElementById("duplicate").innerHTML="";
   pendingStore=store;
   showTypes();
 }
@@ -290,51 +299,23 @@ function addType(type){
   pendingStore=null;
 
   document.getElementById("duplicate").innerHTML="";
-
-  playSuccess();
-
-  const status=document.getElementById("status");
-  status.className="success";
-  status.innerText="✅ Added";
-
   document.getElementById("types").innerHTML="";
-  renderList();
 
-  setTimeout(updateStatus,1000);
+  renderList();
+  updateStatus();
+  saveState();
 }
 
 function addOther(){
   const val=prompt("Enter OTHER:");
   if(!val) return;
-
-  scanned.push({store:pendingStore,type:val});
-  pendingStore=null;
-
-  document.getElementById("duplicate").innerHTML="";
-
-  playSuccess();
-
-  const status=document.getElementById("status");
-  status.className="success";
-  status.innerText="✅ Added";
-
-  document.getElementById("types").innerHTML="";
-  renderList();
-
-  setTimeout(updateStatus,1000);
+  addType(val);
 }
 
-// ===== STATUS =====
-function updateStatus(){
-  const status=document.getElementById("status");
-
-  if(scanned.length===0){
-    status.innerText="";
-    status.className="";
-  } else {
-    status.className="";
-    status.innerText="📝 Total: "+scanned.length;
-  }
+function forceAdd(store){
+  document.getElementById("duplicate").innerHTML="";
+  pendingStore=store;
+  showTypes();
 }
 
 // ===== LIST =====
@@ -358,19 +339,29 @@ function removeItem(i){
   scanned.splice(i,1);
   renderList();
   updateStatus();
+  saveState();
 }
 
-// ===== SAVE =====
+// ===== STATUS =====
+function updateStatus(){
+  const status=document.getElementById("status");
+
+  if(scanned.length===0){
+    status.innerText="";
+  } else {
+    status.innerText="📝 Total: "+scanned.length;
+  }
+}
+
+// ===== REPORT =====
 function generateReport(){
-  const now = new Date();
-  const date = now.toLocaleDateString();
-  const time = now.toLocaleTimeString();
+  let text = "TIR: " + tirNumber + "\n";
+  text += "CDC: " + currentCDC + "\n\n";
 
-  let text=`Date: ${date} ${time}\n`;
-  text+="TIR: "+tirNumber+"\n";
-  text+="CDC: "+currentCDC+"\n\n";
+  scanned.forEach(s=>{
+    text += `Store ${s.store} → ${s.type}\n`;
+  });
 
-  scanned.forEach(s=>text+=`Store ${s.store} → ${s.type}\n`);
   return text;
 }
 
@@ -379,15 +370,39 @@ function save(){
   alert(generateReport());
 }
 
+// ===== ACTIONS =====
+function newLoad(){
+  scanned=[];
+  tirNumber="";
+  currentCDC=null;
+  saveState();
+  showCDC();
+}
+
+function logout(){
+  resetApp();
+}
+
+// ===== SEND (UPDATED) =====
 function sendEmail(){
   if(!scanned.length) return alert("Nothing to send");
 
-  window.location.href=
-    `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(generateReport())}`;
+  const report = generateReport();
+
+  window.location.href =
+    `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(report)}`;
+
+  setTimeout(()=>{
+    resetApp(); // 🔥 теперь возвращает на логин
+  },800);
 }
 
 // START
-showLogin();
+if(loadState()){
+  showScanner();
+} else {
+  showLogin();
+}
 
 </script>
 </body>
