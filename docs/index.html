@@ -65,6 +65,18 @@ button {
   margin:10px 0;
   border:1px solid #ffc107;
 }
+
+/* 🔥 FIXED HEADER */
+.fixed-header{
+  position:sticky;
+  top:0;
+  background:#fff;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:6px;
+  border:1px solid #ddd;
+  z-index:10;
+}
 </style>
 </head>
 
@@ -94,8 +106,80 @@ function updateDateTime(){
 const users = { "admin": "1234" };
 
 const cdcData = {
-  "Berlin": [1,2,3,4,5,6,8],
-  "Hamburg": [10,11,12]
+
+  "Berlin": [
+    25,29,36,467,468,472,483,488,508,515,516,518,535,538,559,
+    565,579,581,582,589,710,738,870,872
+  ],
+
+  "Hamburg": [
+    25,29,34,38,451,452,453,454,455,456,459,460,475,477,490,520,
+    525,529,540,541,555,563,567,572,865,866
+  ],
+
+  "Darmstadt": [
+    28,32,35,37,469,470,474,478,484,494,496,507,510,523,532,
+    537,564,569,570,585,587,591,597,862
+  ],
+
+  "Herne": [
+    42,457,458,461,462,463,471,476,481,491,504,506,514,524,527,
+    528,551,554,558,568,575,584,593,595,596,871,874,876,9042
+  ],
+
+  "Zoerbig": [
+    27,464,466,473,480,489,509,545,547,550,858,859,861
+  ],
+
+  "Bielefeld": [
+    23,465,482,493,498,513,522,544,553,560,571,578,594,599,857
+  ],
+
+  "Wroclaw": [
+    43,44,46,47,48,49,701,702,703,704,705,708,711,714,715,
+    720,725,727,730,732,734,735,741,742,890,892,896,9049
+  ],
+
+  "Torun": [
+    712,716,719,723,726,728,731,740,895
+  ],
+
+  "Teresin": [
+    706,707,709,721,722,729,733,736,737,739,743,744,889
+  ],
+
+  "Kirchheim": [
+    31,33,39,41,479,486,492,495,503,519,577,583,853,854,855,
+    863,869,885
+  ],
+
+  "West": [
+    485,487,499,501,502,505,521,526,530,533,534,536,549,566,580,
+    590,856,860,884,1001,1003,9003
+  ],
+
+  "Vienna": [
+    54,56,769,770,771,772,773,774,775,776,777,778,779,781,831,832,898,899
+  ],
+
+  "Duiven": [
+    679,680,681,682,683,684,685,686,
+    821,822,823,824,825,826,827,
+    828,829,830,879
+  ],
+
+  "Nuernberg": [
+    497,531,546,556,557,561,562,573,586,588,598,875,881,882,883
+  ],
+
+  "Krakow": [
+    51,713,717,718,724,891,893,894,897,9051
+  ],
+
+  "AT SUED": [
+    768,780,782,783,784
+  ]
+
 };
 
 let currentCDC=null;
@@ -212,14 +296,19 @@ function startScan(){
 // ===== SCANNER =====
 function showScanner(){
   document.getElementById("app").innerHTML=`
+
+    <div class="fixed-header">
+      <b>CDC:</b> ${currentCDC} |
+      <b>TIR:</b> ${tirNumber}
+      <div id="datetime" class="label"></div>
+    </div>
+
     <h3>
       ${currentCDC}
       <button onclick="changeCDC()" style="width:auto;padding:6px 10px;font-size:12px;margin-left:10px;">
         Change
       </button>
     </h3>
-
-    <div id="datetime" class="label"></div>
 
     <div class="label">TIR</div>
     <input id="tirLive" value="${tirNumber}">
@@ -257,7 +346,7 @@ function handleScan(e){
 
   if(!code) return;
 
-  const store=parseInt(code.slice(-1));
+  const store = parseInt(code);
   const status=document.getElementById("status");
 
   if(!cdcData[currentCDC].includes(store)){
@@ -383,9 +472,12 @@ function logout(){
   resetApp();
 }
 
-// ===== SEND (UPDATED) =====
+// ===== SEND (CONFIRM) =====
 function sendEmail(){
   if(!scanned.length) return alert("Nothing to send");
+
+  const confirmSend = confirm("Send report?");
+  if(!confirmSend) return;
 
   const report = generateReport();
 
@@ -393,7 +485,7 @@ function sendEmail(){
     `mailto:test@email.com?subject=TIR ${tirNumber}&body=${encodeURIComponent(report)}`;
 
   setTimeout(()=>{
-    resetApp(); // 🔥 теперь возвращает на логин
+    resetApp();
   },800);
 }
 
